@@ -12,4 +12,8 @@ var process = function (req, res) {
 
 };
 
-module.exports = {create, input, process};
+module.exports = {
+    create: create,
+    input: input,
+    process: process
+};
