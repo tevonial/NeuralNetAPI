@@ -1,55 +1,54 @@
 const Network = require('./network.js');
 
 module.exports = class FeatureMap {
-    constructor(layer, dim) {
-        this.dim = dim;
+    constructor(layer, network, dimX, dimY) {
+        this.dimX = dimX;
+        this.dimY = dimY;
         this.layer = layer;
-        this.convolutedDim = layer.convolutedDim;
-
+        this.network = network;
         this.weights = [];
-        for (let i = 0; i <= dim * dim; i++)  //<= for bias
-            this.weights.push((Math.random() - Math.random()) / 5.0);
+        this.delta = 0;
+
+        for (let i = 0; i <= dimX * dimY; i++)  //<= for bias
+            this.weights.push(Math.random() / 5.0);
     }
 
     filter(input) {
-        this.out = [];
+        this.o = [];
 
-        for (let y = 0; y < this.convolutedDim; y++) {
-            for (let x = 0; x < this.convolutedDim; x++) {
+        for (let y = 0; y < this.layer.convolutedDimY; y++) {
+            for (let x = 0; x < this.layer.convolutedDimX; x++) {
                 let activation = 0;
 
-                for (let i = 0; i < Math.pow(this.dim, 2); i++)
-                    activation += this.weights[i] * input[(((i / this.dim) + y) * 28) + (i % this.dim + x)];
+                for (let i = 0; i < this.dimX * this.dimY; i++)
+                    activation += this.weights[i] * input[i];
 
-                activation += this.weights[this.weights.size() - 1];        //bias weight * 1
-                this.out.push(this.layer.network.activate(activation));
+                activation += this.weights[this.weights.length - 1];        //bias weight * 1
+                this.o.push(Network.activate(activation));
             }
         }
 
-        return this.out;
+        return this.o;
     }
 
     correct(E) {
-        for (let a=0; a<this.dim; a++) {
-            for (let b = 0; b<=this.dim; b++) {
-                let dweight = 0;
+        for (let y = 0; y < this.dimY; y++) {
+            for (let x = 0; x <= this.dimX; x++) {
+                let d = 0;
 
-                for (let i=0; i<this.convolutedDim; i++) {
-                    for (let j=0; j<this.convolutedDim; j++) {
+                for (let i = 0; i < this.o.length / this.dimY; i++) {
+                    for (let j = 0; j < this.o.length % this.dimX; j++) {
+                        let e = E[((i / this.layer.factorY) * (this.dimY / this.layer.factorY)) + j / this.layer.factorX];
 
-                        let e = E[((i / 2) * (this.convolutedDim / 2)) + j / 2];
-
-                        try {
-                            dweight += e * this.layer.network.activatePrime(this.out[(i * this.convolutedDim) + j] * this.layer.input[((i + a) * 28) + (j + b)]);
-                        } catch (ex) {
-                            dweight += e * this.layer.network.activatePrime(this.out[(i * this.convolutedDim) + j]);
-                        }
-
+                        if (this.layer.index === this.layer.network.layers.size())
+                            d += e * Network.activatePrime(this.o[((y + i) * this.layer.convolutedDimX) + x + j] * this.layer.input[((y + i) * this.layer.convolutedDimX) + x + j]);
+                        else
+                            d += e * Network.activatePrime(this.o[((y + i) * this.layer.convolutedDimX) + x + j]);
                     }
                 }
 
-                dweight *= -1 * this.layer.network.LEARNING_RATE;
-                this.weights[a * this.dim + b] = weights[a * this.dim + b] + dweight;
+                d *= this.layer.network.learning_rate * -1;
+                this.weights[y * this.dimX + x] = this.weights[y * this.dimX + x] + d;
             }
         }
     }

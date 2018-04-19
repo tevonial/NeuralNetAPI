@@ -1,64 +1,46 @@
 const Network = require('./network.js');
 
-
 module.exports = class Neuron {
     constructor(network, index, numInputs) {
         this.network = network;
         this.index = index;
         this.numInputs = numInputs;
         this.weights = [];
+        this.delta = 0;
 
-        for (let i=0; i<=numInputs; i++)  // <= for bias
+        for (let i = 0; i <= numInputs; i++)  // <= for bias
             this.weights.push(Math.random() - Math.random());
     }
 
-
-
-    getOutput(inputs) {
+    filter(input) {
         let activation = 0;
 
         if (this.numInputs === 1) {                         // For input layer
             this.input = [];
-            this.input.push(inputs[this.index]);
+            this.input.push(input[this.index]);
         } else {                                            // For all other layers
-            this.input = inputs;
+            this.input = input;
         }
 
-        for (let i=0; i<this.input.length; i++) {
-            try {
-                activation += this.weights[i] * input[i];
-            } catch (e) {
-                console.log("weights.length=" + this.weights.length + "\tinput.length=" + this.input.length);
-            }
-        }
+        for (let i = 0; i < this.input.length; i++)
+            activation += this.weights[i] * this.input[i];
 
         activation += this.weights[this.weights.length - 1];        // bias weight * 1
-        this.o = this.network.activate(activation);
-
+        this.o = Network.activate(activation);
+        
+        console.log("activation: ", activation);
+        console.log("weights.length = " + this.weights.length);
+        console.log("input.length = " + this.input.length);
+        console.log("this.o = " + this.o);
+        
         return this.o;
     }
 
     correct(E) {
-        this.d = E * this.network.activatePrime(this.o);
+        this.delta = E * Network.activatePrime(this.o);
+        let delta = this.delta * this.network.learning_rate * -1;
 
-        // FINAL DELTA
-        let delta = this.d * (-1) * this.network.learning_rate;
-
-        for (let i=0; i<this.weights.length; i++) {
-            let deltaWeight = delta;
-            try {
-                deltaWeight *= input[i];
-            } catch (e) {}
-
-            this.weights[i] = this.weights[i] + deltaWeight;
-        }
-    }
-
-    getWeights() {
-        return this.weights;
-    }
-
-    getDelta() {
-        return this.d;
+        for (let i = 0; i < this.weights.length; i++)
+            this.weights[i] = this.weights[i] + delta;
     }
 };

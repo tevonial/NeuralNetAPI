@@ -1,81 +1,75 @@
 const FullLayer = require('./layer.full.js');
 const ConvolutionalLayer = require('./layer.convolutional.js');
 
-module.exports = class Network {
+class Network {
     constructor() {
         this.layers = this.target = [];
-        this.learning_rate = 0.01;
-        this.dim = 28;
+        this.learning_rate = 0.05;
+        this.dimX = 28;
+        this.dimY = 28
     }
 
     static buildFullyConnectedNetwork(inputSize, outputSize, hiddenLayers, hiddenSize) {
-        const net = new Network();
+        let net = new Network();
 
-        net.layers.push(new FullLayer(net, 0, outputSize, hiddenSize));
-        for(let i=0; i<hiddenLayers; i++)
-            net.layers.push(new FullLayer(net, net.layers.length, inputSize, 1));
+        net.layers.push(new FullLayer(net, net.layers.length, outputSize, hiddenSize));
+        for (let i = 0; i < hiddenLayers; i++)
+            net.layers.push(new FullLayer(net, net.layers.length, hiddenSize, inputSize));
         net.layers.push(new FullLayer(net, net.layers.length, inputSize, 1));
 
         return net;
     }
 
-    static buildConvolutionalNetwork(numFeatures, featureDim, outputSize) {
-        const net = new Network();
+    static buildConvolutionalNetwork(numFeatures, featureDimX, featureDimY, outputSize) {
+        let net = new Network();
 
-        const convolutionalOutputSize = Math.pow((net.dim - featureDim + 1), 2) * numFeatures;
+        const convolutionalOutputSize = (net.dimX - featureDimX + 1) * (net.dimY - featureDimY + 1) * numFeatures;
 
         net.layers.push(new FullLayer(net, net.layers.length, outputSize, convolutionalOutputSize));
-        net.layers.push(new ConvolutionalLayer(net, net.layers.length, numFeatures, featureDim));
+        net.layers.push(new ConvolutionalLayer(net, net.layers.length, numFeatures, featureDimX, featureDimY));
 
         return net;
     }
 
-    getLayer(index) {
-        if (index === -1 || index >= this.layers.length)
-            return null;
-        else
-            return this.layers[index];
-    }
-
-    getTarget(index) {
-        return this.target[index];
-    }
-
-    process(input, target, backprop, digit) {
+    process(input, target, backprop, set) {
         this.target = target;
-        this.layers[this.layers.length-1].feedForward(input, backprop);
 
-        const output = this.layers[0].getOutput();
+        let start = new Date().getTime();
+        this.layers[this.layers.length - 1].feedForward(input, backprop);
+        let end = new Date().getTime();
 
-        if (digit != null) {
-            console.log(set + " --> ");
-            output.forEach(function (o) {
-                console.log(o.toFixed(2) * 100.0 + ' ');
-            });
+        let output = this.layers[0].feedForward(input);
+        let error = 0;
+
+        for (let i = 0; i < this.target.length; i++)
+            error += this.target[i] - output[i];
+
+        if (set != null) {
+            process.stdout.write(set + " --> ");
+
+            for (let i = 0; i < output.length; i++) {
+                if (output[i] < 100) process.stdout.write(" ");
+                if (output[i] < 10) process.stdout.write(" ");
+                if (output[i] >= 0) process.stdout.write(" ");
+                process.stdout.write(output[i].toFixed(4));
+            }
+
+            if (error < 0) process.stdout.write(" \terror: " + error.toFixed(2));
+            else process.stdout.write(" \terror:  " + error.toFixed(2));
+
+            process.stdout.write(" \t" + (end - start).toFixed(2) + " ms\n");
         }
 
         return output;
     }
 
-    activate(x) {
-        return (1 / ( 1 + Math.exp(-1 * x)));                   //SIGMOID
-        //return Math.log(1 + Math.exp(x));                     //ReLU
-
-        /*if (x <= 0) {                                         //Leaky ReLU
-            return x * 0.01;
-        } else {
-            return x;
-        }*/
+    static activate(x) {
+        return (1 / ( 1 + Math.exp(-1 * x)));
     }
 
-    activatePrime(x) {
-        return x * (1.0 - x);                                  //SIGMOID
-        //return  1.0 / (1.0 + Math.exp(-1 * x));              //ReLU
-
-        /*if (x <= 0) {                                        //Leaky ReLU
-            return  0.01;
-        } else {
-            return 1;
-        }*/
+    static activatePrime(x) {
+        return x * (1.0 - x);
     }
-};
+}
+
+module.exports = {Network};

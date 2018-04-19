@@ -1,50 +1,54 @@
 const FeatureMap = require('./featuremap.js');
 
 module.exports = class ConvolutionalLayer {
-    constructor(network, layerIndex, numFeatures, featureDim) {
+    constructor(network, layerIndex, numFeatures, featureDimX, featureDimY) {
         this.network = network;
-        this.layerIndex = layerIndex;
-        this.convolutedDim = this.network.dim - featureDim + 1;
+        this.index = layerIndex;
+        this.convolutedDimX = this.network.dimX - featureDimX + 1;
+        this.convolutedDimY = this.network.dimY - featureDimY + 1;
+        this.factorX = this.factorY = 2;
 
         this.features = [];
-        for (let i=0; i<numFeatures; i++)
-            this.features.push(new FeatureMap(this, featureDim));
+        for (let i = 0; i < numFeatures; i++)
+            this.features.push(new FeatureMap(i, this, featureDimX, featureDimY));
     }
 
     feedForward(input, backprop) {
-        let output = {};
+        let output = [];
 
         this.features.forEach(function (map) {
             output = output.concat(pool(map.filter(input)));
         });
 
-        this.network.getLayer(this.layerIndex - 1).feedForward(output, backprop);
+        this.network.layers[this.index - 1].feedForward(output, backprop);
     }
 
     backPropagate(E) {
-        for (let f=0; f<this.features.length; f++) {
-            let convolutedSize = Math.pow(this.convolutedDim, 2) / 4;
+        for (let f = 0; f < this.features.length; f++) {
+            let convolutedSize = (this.convolutedDimX * this.convolutedDimY) / (this.factorX * this.factorY);
             let index = f * convolutedSize;
 
             this.features[f].correct(E.slice(index, index + convolutedSize));
          }
     }
-}
+};
 
 function pool(input) {
-    let out = {};
+    let out = [];
+    let poolDimX = (this.convolutedDimX - this.factorX) / this.factorX;
+    let poolDimY = (this.convolutedDimY - this.factorY) / this.factorY;
 
-    for (let y = 0; y < this.convolutedDim-2; y+=2) {
-        for (let x = 0; x < this.convolutedDim-2; x+=2) {
-            let o = Math.max(
-                input[(y*this.convolutedDim + x)], Math.max(
-                    input[(y*this.convolutedDim + x + 1)], Math.max(
-                        input[(y+1)*this.convolutedDim + x], input[(y+1)*this.convolutedDim + x + 1]
-                    )));
+    for (let y = 0; y < poolDimY; y += this.factorY) {
+        for (let x = 0; x < poolDimX; x += this.factorX) {
+            let max = 0;
 
-            out.add(o);
+            for (let y2 = 0; y2 < this.factorY; y2++)
+                for (let x2 = 0; x2 < this.factorX; y2++) {
+                    max = Math.max(max, input[(y + y2) * this.convolutedDimX + x + x2]);
+                    out.push(max);
+                }
         }
     }
 
     return out;
-};
+}
